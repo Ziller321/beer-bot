@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/graphql-go/graphql"
+	"github.com/graphql-go/handler"
 )
 
 // Slice to hold sensor data
@@ -31,7 +34,7 @@ func embedServer() {
 	LinkRelay(tempSensors[1], 1)
 
 	// Run loop
-	count := time.Tick(3 * time.Second)
+	count := time.Tick(10 * time.Second)
 	for range count {
 
 		for index := range tempSensors {
@@ -47,9 +50,22 @@ func embedServer() {
 
 func main() {
 	fmt.Println("Hello from goBerry")
-
 	go webServer()
-	embedServer()
+	go embedServer()
+
+	Schema, _ := graphql.NewSchema(graphql.SchemaConfig{
+		Query: queryType,
+	})
+
+	h := handler.New(&handler.Config{
+		Schema:   &Schema,
+		Pretty:   true,
+		GraphiQL: true,
+	})
+
+	// serve HTTP
+	http.Handle("/graphql", h)
+	http.ListenAndServe(":8080", nil)
 }
 
 func hello(w http.ResponseWriter, r *http.Request) {

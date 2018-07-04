@@ -7,19 +7,26 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 var tempDeviceFolder = "/sys/bus/w1/devices/"
 var tempFileName = "w1_slave"
 
+type tempSensorHistory struct {
+	Value float64 `json: value`
+	Time  int64   `json: time`
+}
+
 // TempSensor is interface for sensor
 type TempSensor struct {
-	Name        string  `json: name`
-	RawValue    int     `json: rawValue`
-	Value       float64 `json: value`
-	LinkedRelay Relay   `json: relay`
-	Target      float64 `json: target`
-	Tolerance   float64 `json: tolerance`
+	Name        string              `json: name`
+	RawValue    int                 `json: rawValue`
+	Value       float64             `json: value`
+	LinkedRelay Relay               `json: relay`
+	Target      float64             `json: target`
+	Tolerance   float64             `json: tolerance`
+	History     []tempSensorHistory `json: history`
 }
 
 // FindSensors will find temp sensors from Pi file system
@@ -36,12 +43,12 @@ func FindSensors(tempSensors *[]TempSensor) {
 		if sensorRegexp.MatchString(f.Name()) {
 			// register sensor
 			*tempSensors = append(*tempSensors, TempSensor{
-				f.Name(),
-				0,
-				0.0,
-				Relay{},
-				20,
-				0.0,
+				Name:        f.Name(),
+				RawValue:    0,
+				Value:       0.0,
+				LinkedRelay: Relay{},
+				Target:      20,
+				Tolerance:   0.0,
 			},
 			)
 		}
@@ -72,6 +79,11 @@ func ReadTemp(sensor *TempSensor) {
 
 				sensor.RawValue = temp
 				sensor.Value = float64(temp) / 1000
+
+				sensor.History = append(sensor.History, tempSensorHistory{
+					Value: sensor.Value,
+					Time:  time.Now().Unix(),
+				})
 
 				// check if relay needs to change
 				if sensor.Value < sensor.Target-sensor.Tolerance {
